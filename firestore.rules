@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isManager() {
+      return hasRole('manager') || isAdmin();
+    }
+
+    function isStaff() {
+      return hasRole('staff') || isManager();
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidItem(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.categoryId is string &&
+             data.quantity is number && data.quantity >= 0 &&
+             data.unit is string &&
+             (!('lowStockThreshold' in data) || data.lowStockThreshold is number);
+    }
+
+    function isValidMovement(data) {
+      return data.itemId is string &&
+             data.type in ['in', 'out'] &&
+             data.quantity is number && data.quantity > 0 &&
+             data.userId == request.auth.uid &&
+             data.date is timestamp;
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && userId == request.auth.uid && 
+                    incoming().role == 'staff'; // Default role
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /categories/{catId} {
+      allow read: if isStaff();
+      allow write: if isManager();
+    }
+
+    match /items/{itemId} {
+      allow read: if isStaff();
+      allow create: if isManager() && isValidItem(incoming());
+      allow update: if (isStaff() && isValidItem(incoming())) ||
+                     (isStaff() && incoming().diff(existing()).affectedKeys().hasOnly(['quantity']));
+      allow delete: if isAdmin();
+    }
+
+    match /stock_movements/{movId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidMovement(incoming());
+      allow update, delete: if isManager();
+    }
+
+    match /production_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && 
+                    incoming().rawMaterials.size() > 0 &&
+                    incoming().finishedGoods.size() > 0;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

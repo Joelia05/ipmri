@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account details and permissions",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "manager", "staff"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Category": {
+      "title": "Item Category",
+      "description": "Categorization for inventory items (e.g., Raw Materials, Finished Goods)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Item": {
+      "title": "Inventory Item",
+      "description": "An item in the warehouse",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "lowStockThreshold": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "low", "out_of_stock"] },
+        "sku": { "type": "string" }
+      },
+      "required": ["name", "categoryId", "quantity", "unit"]
+    },
+    "StockMovement": {
+      "title": "Stock Movement",
+      "description": "Records of items moving in or out of inventory",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "quantity": { "type": "number" },
+        "reason": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["itemId", "type", "quantity", "date"]
+    },
+    "ProductionLog": {
+      "title": "Production Log",
+      "description": "Records of manufacturing process (raw materials to finished goods)",
+      "type": "object",
+      "properties": {
+        "rawMaterials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "finishedGoods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "date": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["rawMaterials", "finishedGoods", "date"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "Application users and roles" },
+    "categories": { "schema": "Category", "description": "Inventory categories" },
+    "items": { "schema": "Item", "description": "Master list of inventory items" },
+    "stock_movements": { "schema": "StockMovement", "description": "History of stock changes" },
+    "production_logs": { "schema": "ProductionLog", "description": "Manufacturing history" }
+  }
+}
